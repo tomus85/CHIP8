@@ -11,19 +11,54 @@ const char keyboard_map[CHIP8_TOTAL_KEYS] = {
     SDLK_6, SDLK_7, SDLK_8, SDLK_9, SDLK_a, SDLK_b,
     SDLK_c, SDLK_d, SDLK_e, SDLK_f};
 
+void drawScreen(struct chip8_screen *screen, struct SDL_Renderer *renderer)
+{
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
+    SDL_RenderClear(renderer);
+    SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
+
+    for (int x = 0; x < CHIP8_WIDTH; x++)
+    {
+        for (int y = 0; y < CHIP8_HEIGHT; y++)
+        {
+            if (chip8_screen_is_set(screen, x, y))
+            {
+                SDL_Rect r;
+                r.x = x * CHIP8_WINDOW_MULTIPLIER;
+                r.y = y * CHIP8_WINDOW_MULTIPLIER;
+                r.w = CHIP8_WINDOW_MULTIPLIER;
+                r.h = CHIP8_WINDOW_MULTIPLIER;
+                SDL_RenderFillRect(renderer, &r);
+            }
+        }
+    }
+
+    SDL_RenderPresent(renderer);
+}
+
 int main(int argc, char **argv)
 {
+    // a clock to keep track of every 60hz tick
+    clock_t renderTimer = 0;
+    // the desired render refresh rate
+    int renderHz = 60;
+
+    // the amount of time the last render too
+    clock_t lastRenderTime = 0;
+    // number of milliseconds to delay (moderated by lastRenderTime)  - 1/120th of a second
+    int loopDelayUsec = 120000;
+
     if (argc < 2)
     {
         printf("You must provide a file to load");
         return -1;
     }
 
-    const char* filename = argv[1];
+    const char *filename = argv[1];
     printf("The filename to load is: %s\n", filename);
 
     // rb - reading binary
-    FILE* f = fopen(filename, "rb");
+    FILE *f = fopen(filename, "rb");
     if (!f)
     {
         printf("Failed to open the file");
@@ -37,6 +72,7 @@ int main(int argc, char **argv)
 
     char buf[size];
     int res = fread(buf, size, 1, f);
+    
     if (res != 1)
     {
         printf("Failed to read from file");
@@ -48,19 +84,19 @@ int main(int argc, char **argv)
     chip8_load(&chip8, buf, size);
     chip8_keyboard_set_map(&chip8.keyboard, keyboard_map);
 
-
     SDL_Init(SDL_INIT_EVERYTHING);
     SDL_Window *window = SDL_CreateWindow(
         EMULATOR_WINDOW_TITLE,
         SDL_WINDOWPOS_UNDEFINED,
         SDL_WINDOWPOS_UNDEFINED,
         CHIP8_WIDTH * CHIP8_WINDOW_MULTIPLIER,
-        CHIP8_HEIGHT * CHIP8_WINDOW_MULTIPLIER, SDL_WINDOW_SHOWN);
+        CHIP8_HEIGHT * CHIP8_WINDOW_MULTIPLIER, SDL_WINDOW_SHOWN | SDL_WINDOW_INPUT_FOCUS | SDL_WINDOW_OPENGL);
 
     SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_TEXTUREACCESS_TARGET);
 
     while (1)
     {
+        clock_t start = clock();
         SDL_Event event;
 
         while (SDL_PollEvent(&event))
@@ -95,43 +131,27 @@ int main(int argc, char **argv)
             };
         }
 
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0);
-        SDL_RenderClear(renderer);
-        SDL_SetRenderDrawColor(renderer, 255, 255, 255, 0);
-
-        for (int x = 0; x < CHIP8_WIDTH; x++)
+        if ((clock() - renderTimer) >= (CLOCKS_PER_SEC / (renderHz * 10)))
         {
-            for (int y = 0; y < CHIP8_HEIGHT; y++)
+            if (chip8.registers.delay_timer > 0)
             {
-                if (chip8_screen_is_set(&chip8.screen, x, y))
-                {
-                    SDL_Rect r;
-                    r.x = x * CHIP8_WINDOW_MULTIPLIER;
-                    r.y = y * CHIP8_WINDOW_MULTIPLIER;
-                    r.w = CHIP8_WINDOW_MULTIPLIER;
-                    r.h = CHIP8_WINDOW_MULTIPLIER;
-                    SDL_RenderFillRect(renderer, &r);
-                }
+                chip8.registers.delay_timer -= 1;
             }
-        }
-
-        SDL_RenderPresent(renderer);
-
-        if (chip8.registers.delay_timer > 0)
-        {
-            sleep(1);
-            chip8.registers.delay_timer -=1;
-        }
-
-        if (chip8.registers.sound_timer > 0)
-        {
-            // Beep(15000, 100 * chip8.registers.sound_timer);
-            chip8.registers.sound_timer = 0;
+            if (chip8.registers.sound_timer > 0)
+            {
+                chip8.registers.sound_timer -= 1;
+            }
+            drawScreen(&chip8.screen, renderer);
+            renderTimer = clock();
         }
 
         unsigned short opcode = chip8_memory_get_short(&chip8.memory, chip8.registers.PC);
         chip8.registers.PC += 2;
         chip8_exec(&chip8, opcode);
+
+        lastRenderTime = clock() - start;
+        float sleep_for = loopDelayUsec / (lastRenderTime >= 1 ? lastRenderTime : 1);
+        usleep(sleep_for);
     }
 
 out:

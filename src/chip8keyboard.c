@@ -1,10 +1,10 @@
 #include "chip8keyboard.h"
 #include <assert.h>
 
-static void chip8_keyboard_ensure_in_bounds(int key)
-{
-    assert(key >= 0 && key < CHIP8_TOTAL_KEYS);
-}
+// static void chip8_keyboard_ensure_in_bounds(int key)
+// {
+//     assert(key >= 0 && key < CHIP8_TOTAL_KEYS);
+// }
 
 void chip8_keyboard_set_map(struct chip8_keyboard* keyboard, const char* map)
 {
