@@ -54,17 +54,20 @@ static void chip8_execute_extended_eight(struct chip8 *chip8, unsigned short opc
 
     // 8xy1 - OR Vx, Vy. Perform a bitwise OR on Vx and Vy stores then result in Vx
     case 0x01:
-        chip8->registers.V[x] = chip8->registers.V[x] | chip8->registers.V[y];
+        // chip8->registers.V[x] = chip8->registers.V[x] | chip8->registers.V[y];
+        chip8->registers.V[x] |= chip8->registers.V[y];
         break;
 
     // 8xy2 - AND Vx, Vy. Perform a bitwise AND on Vx and Vy stores the result in Vx
     case 0x02:
-        chip8->registers.V[x] = chip8->registers.V[x] & chip8->registers.V[y];
+        // chip8->registers.V[x] = chip8->registers.V[x] & chip8->registers.V[y];
+        chip8->registers.V[x] &= chip8->registers.V[y];
         break;
 
     // 8xy3 - AND Vx, Vy. perform a bitwise XOR on Vx and Vy then store result in Vx
     case 0x03:
-        chip8->registers.V[x] = chip8->registers.V[x] ^ chip8->registers.V[y];
+        // chip8->registers.V[x] = chip8->registers.V[x] ^ chip8->registers.V[y];
+        chip8->registers.V[x] ^= chip8->registers.V[y];
         break;
 
     // 8xy4 - ADD Vx, Vy. Set Vx = Vx + Vy, set VF = carry
@@ -86,13 +89,13 @@ static void chip8_execute_extended_eight(struct chip8 *chip8, unsigned short opc
         {
             chip8->registers.V[0x0f] = true;
         }
-        chip8->registers.V[x] = chip8->registers.V[x] - chip8->registers.V[y];
+        chip8->registers.V[x] -= chip8->registers.V[y];
         break;
 
     // 8xy6 - SHR Vx {, Vy}
     case 0x06:
-        chip8->registers.V[0x0f] = chip8->registers.V[x] & 0x01;
-        chip8->registers.V[x] = chip8->registers.V[x] / 2;
+        chip8->registers.V[0x0f] = chip8->registers.V[x] & 0b00000001;
+        chip8->registers.V[x] /= 2;
         break;
 
     // 8xy7 - SUBN Vx, Vy
